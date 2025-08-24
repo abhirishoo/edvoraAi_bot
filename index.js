@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdfParse = require("pdf-parse");
 const fetch = require("node-fetch");
+const express = require("express");
 
 dotenv.config();
 
@@ -61,7 +62,7 @@ bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   const s = S(chatId);
   s.mode = "awaiting_name";
-  bot.sendMessage(chatId, "Welcome to AI Career Mentor! Let's create your profile.\nWhat's your name?");
+  bot.sendMessage(chatId, "Welcome to AI Career Mentor! Let's create your profile.\nWhat's your name?", mainKeyboard);
 });
 
 // ---- Help ----
@@ -158,22 +159,22 @@ bot.on("message", async (msg) => {
     case "awaiting_name":
       s.name = text;
       s.mode = "awaiting_role";
-      return bot.sendMessage(chatId, `Hi ${text}! Which role are you preparing for?`);
+      return bot.sendMessage(chatId, `Hi ${text}! Which role are you preparing for?`, mainKeyboard);
 
     case "awaiting_role":
       s.role = text;
       s.mode = "awaiting_experience";
-      return bot.sendMessage(chatId, "How many years of experience do you have?");
+      return bot.sendMessage(chatId, "How many years of experience do you have?", mainKeyboard);
 
     case "awaiting_experience":
       s.experience = text;
       s.mode = "awaiting_strengths";
-      return bot.sendMessage(chatId, "List your strengths (comma separated).");
+      return bot.sendMessage(chatId, "List your strengths (comma separated).", mainKeyboard);
 
     case "awaiting_strengths":
       s.strengths = text.split(",").map(x => x.trim());
       s.mode = "awaiting_weaknesses";
-      return bot.sendMessage(chatId, "List your weaknesses (comma separated).");
+      return bot.sendMessage(chatId, "List your weaknesses (comma separated).", mainKeyboard);
 
     case "awaiting_weaknesses":
       s.weaknesses = text.split(",").map(x => x.trim());
@@ -205,7 +206,7 @@ async function generateQuestion(chatId, role) {
     const r = await model.generateContent(
       `You are an expert interviewer. Generate 1 challenging, user-specific interview question for the following candidate:\n` +
       `Name: ${s.name}\nRole: ${role}\nExperience: ${s.experience}\n` +
-      `Strengths: ${s.strengths.join(", ")}\nWeaknesses: ${s.weaknesses.join(", ")}\n` +
+      `Strengths: ${s.strengths.join(", ")}\nWeaknesses: ${s.strengths.join(", ")}\n` +
       `Make the question relevant to their strengths and address improvement areas. Keep it concise. No bold.`
     );
     const question = removeMarkdown(r.response.text());
@@ -230,7 +231,6 @@ async function giveFeedbackAndFollowUp(chatId) {
     const feedbackText = removeMarkdown(r.response.text());
     bot.sendMessage(chatId, "Feedback:\n" + feedbackText);
 
-    // Generate follow-up question if under 3 follow-ups
     if (s.followUps < 1) {
       const followUpR = await model.generateContent(
         `Based on the previous answer, generate 1 follow-up interview question for the candidate.\n` +
@@ -265,5 +265,15 @@ async function generatePrepPlan(chatId, s) {
     bot.sendMessage(chatId, "Error generating prep plan.");
   }
 }
+
+// ---- Express Server for Render free tier ----
+const app = express();
+app.get("/", (req, res) => {
+  res.send("🤖 AI Career Mentor bot is running on Render!");
+});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Web service running on port ${PORT}`);
+});
 
 console.log("🤖 AI Career Mentor bot is running...");
